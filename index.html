@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mezcla Natural 3D</title>
+  <style>
+    :root {
+      --cyan: #00f0ff;
+      --magenta: #ff00d4;
+      --blue: #2962ff;
+      --emerald: #00ff9c;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+    html, body {
+      width: 100vw; height: 100vh; overflow: hidden;
+      background-color: #010308;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+    #webgl-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; z-index: 1; }
+
+    /* ================= TELÓN SCI-FI MELODIC TECHNO ================= */
+    #curtain { position: fixed; inset: 0; z-index: 100; display: flex; overflow: hidden; pointer-events: auto; }
+    #curtain.open { pointer-events: none; }
+    .gate {
+      position: relative; width: 50vw; height: 100vh; overflow: hidden;
+      background: linear-gradient(135deg, #06092b, #003566, #32004f, #0b2478, #06092b);
+      background-size: 400% 400%;
+      animation: gateGradient 10s ease infinite;
+      transition: transform 1.55s cubic-bezier(0.77, 0, 0.175, 1);
+      will-change: transform;
+    }
+    .gate-left { border-right: 3px solid var(--cyan); box-shadow: inset -80px 0 150px rgba(0, 240, 255, 0.42); }
+    .gate-right { border-left: 3px solid var(--magenta); box-shadow: inset 80px 0 150px rgba(255, 0, 212, 0.42); }
+    #curtain.open .gate-left { transform: translateX(-100%); }
+    #curtain.open .gate-right { transform: translateX(100%); }
+
+    .gate-plasma {
+      position: absolute; inset: -25%;
+      background: radial-gradient(circle at 28% 28%, rgba(0, 240, 255, 0.62), transparent 40%),
+                  radial-gradient(circle at 72% 68%, rgba(255, 0, 212, 0.58), transparent 42%),
+                  radial-gradient(circle at 50% 95%, rgba(41, 98, 255, 0.65), transparent 50%);
+      filter: blur(22px); animation: plasmaFloat 8s ease-in-out infinite alternate;
+    }
+    .gate-right .gate-plasma { animation-delay: -4s; }
+
+    .gate-hex-primary {
+      position: absolute; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='110'%3E%3Cpath d='M32 73.3L0 55L0 18.3L32 0L64 18.3L64 55L32 73.3L32 110' fill='none' stroke='%2300f0ff' stroke-opacity='0.6' stroke-width='1.5'/%3E%3Cpath d='M32 0L32 36.7L0 55L0 91.7L32 110L64 91.7L64 55L32 36.7' fill='none' stroke='%23ff00d4' stroke-opacity='0.48' stroke-width='1.3'/%3E%3C/svg%3E");
+      background-size: 64px 110px; mix-blend-mode: screen; opacity: 0.85; animation: hexDriftPrimary 18s linear infinite;
+    }
+    .gate-hex-secondary {
+      position: absolute; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='166'%3E%3Cpath d='M48 110.6L0 83L0 27.6L48 0L96 27.6L96 83L48 110.6L48 166' fill='none' stroke='%232962ff' stroke-opacity='0.55' stroke-width='2'/%3E%3C/svg%3E");
+      background-size: 96px 166px; mix-blend-mode: screen; opacity: 0.65; animation: hexDriftSecondary 26s linear infinite reverse;
+    }
+
+    .gate-glass {
+      position: absolute; inset: 5vh 3.5vw; border-radius: 30px; border: 1.5px solid rgba(255, 255, 255, 0.24);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.13), rgba(0, 240, 255, 0.04) 50%, rgba(255, 0, 212, 0.06));
+      backdrop-filter: blur(8px); box-shadow: inset 0 0 55px rgba(0, 240, 255, 0.14), 0 0 60px rgba(0, 0, 0, 0.45); overflow: hidden;
+    }
+    .gate-glass::after {
+      content: ""; position: absolute; top: -50%; left: -65%; width: 45%; height: 200%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+      transform: rotate(20deg); animation: glassSheen 5s ease-in-out infinite;
+    }
+
+    .gate-scan {
+      position: absolute; left: 0; width: 100%; height: 4px;
+      background: linear-gradient(90deg, transparent, var(--cyan), #ffffff, var(--magenta), transparent);
+      box-shadow: 0 0 28px var(--cyan), 0 0 48px var(--magenta); animation: scanSweep 4.2s linear infinite;
+    }
+    .gate-right .gate-scan { animation-delay: -2.1s; }
+
+    #curtain-seam {
+      position: absolute; top: 0; left: 50%; width: 8px; height: 100%; transform: translateX(-50%);
+      background: linear-gradient(to bottom, var(--cyan), #ffffff, var(--magenta), var(--blue), var(--cyan));
+      background-size: 100% 300%; animation: seamFlow 2.6s linear infinite, seamPulse 1.4s ease-in-out infinite;
+      opacity: 1; transition: opacity 0.45s ease 1.3s; pointer-events: none; z-index: 3;
+    }
+    #curtain-seam::before {
+      content: ""; position: absolute; inset: 0 -22px;
+      background: linear-gradient(to bottom, transparent, rgba(0, 240, 255, 0.38), rgba(255, 0, 212, 0.38), transparent); filter: blur(18px);
+    }
+    #curtain-seam::after {
+      content: ""; position: absolute; top: 50%; left: 50%; width: 340px; height: 340px; transform: translate(-50%, -50%);
+      border-radius: 50%; background: radial-gradient(circle, rgba(255, 255, 255, 0.78), rgba(0, 240, 255, 0.45) 30%, rgba(255, 0, 212, 0.25) 55%, transparent 74%);
+      animation: flarePulse 1.4s ease-in-out infinite;
+    }
+    #curtain.igniting #curtain-seam { width: 18px; box-shadow: 0 0 90px #ffffff, 0 0 180px var(--cyan), 0 0 260px var(--magenta); }
+    #curtain.open #curtain-seam { opacity: 0; transition: opacity 0.28s ease 0s; }
+
+    /* ================= BOTÓN DE INICIO APANTALLADOR ================= */
+    #action-btn {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 200;
+      padding: 28px 88px; font-family: inherit; font-size: 1.5rem; font-weight: 900; letter-spacing: 0.38em; text-transform: uppercase;
+      color: #ffffff; text-shadow: 0 0 16px rgba(255, 255, 255, 0.95), 0 0 36px var(--cyan); border: none; border-radius: 999px; cursor: pointer;
+      background: linear-gradient(90deg, var(--cyan), var(--magenta), var(--blue), var(--cyan)); background-size: 300% 100%;
+      animation: btnFlow 3.5s linear infinite, btnBreathe 2.6s ease-in-out infinite;
+      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.55s ease, box-shadow 0.45s ease, letter-spacing 0.45s ease, padding 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    #action-btn::before {
+      content: ""; position: absolute; inset: 3.5px; border-radius: inherit;
+      background: radial-gradient(circle at 50% 50%, rgba(18, 12, 48, 0.92), rgba(4, 7, 24, 0.95)); z-index: -1; transition: background 0.4s ease, box-shadow 0.4s ease;
+    }
+    #action-btn::after {
+      content: ""; position: absolute; inset: -12px; border-radius: inherit; border: 2.5px solid var(--cyan);
+      box-shadow: 0 0 28px var(--cyan), inset 0 0 20px var(--magenta); opacity: 0; animation: ringWave 2s ease-out infinite; pointer-events: none;
+    }
+    #action-btn:hover {
+      transform: translate(-50%, -50%) scale(1.18); padding: 30px 104px; letter-spacing: 0.48em; animation: btnFlow 1.2s linear infinite;
+      box-shadow: 0 0 40px #ffffff, 0 0 90px var(--cyan), 0 0 170px var(--magenta), 0 0 280px var(--blue);
+    }
+    #action-btn:hover::before {
+      background: radial-gradient(circle at 50% 50%, rgba(0, 240, 255, 0.28), rgba(41, 98, 255, 0.42)); box-shadow: inset 0 0 36px rgba(255, 255, 255, 0.45);
+    }
+    #action-btn:hover::after { border-color: #ffffff; animation: ringWaveHover 0.9s ease-out infinite; }
+    #action-btn:active { transform: translate(-50%, -50%) scale(1.06); }
+    #action-btn.hidden { opacity: 0; pointer-events: none; transform: translate(-50%, -50%) scale(1.55); filter: blur(8px); }
+
+    /* ================= CONFETI 2D Y TEXTO FINAL ================= */
+    #confetti-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 9999; pointer-events: none; }
+    #finale-overlay {
+      position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 0 4vw; text-align: center;
+      pointer-events: none; opacity: 0; transform: scale(0.82); transition: opacity 1.3s ease, transform 1.3s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    #finale-overlay.visible { opacity: 1; transform: scale(1); }
+    #finale-overlay h1 {
+      font-size: clamp(2.8rem, 7.2vw, 6.8rem); font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1.1;
+      background: linear-gradient(90deg, var(--cyan), #ffffff, var(--magenta), var(--emerald), var(--cyan)); background-size: 300% 100%;
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      filter: drop-shadow(0 0 22px rgba(0, 240, 255, 0.9)) drop-shadow(0 0 52px rgba(255, 0, 212, 0.65)); animation: titleFlow 4.5s linear infinite;
+    }
+
+    /* ================= KEYFRAMES ================= */
+    @keyframes gateGradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    @keyframes plasmaFloat { 0% { transform: translate(-5%, -4%) scale(1); } 100% { transform: translate(6%, 5%) scale(1.14); } }
+    @keyframes hexDriftPrimary { 0% { background-position: 0 0; } 100% { background-position: 0 -440px; } }
+    @keyframes hexDriftSecondary { 0% { background-position: 0 0; } 100% { background-position: 96px 332px; } }
+    @keyframes glassSheen { 0% { left: -65%; } 55% { left: 135%; } 100% { left: 135%; } }
+    @keyframes scanSweep { 0% { top: -5%; } 100% { top: 105%; } }
+    @keyframes seamFlow { 0% { background-position: 0 0%; } 100% { background-position: 0 300%; } }
+    @keyframes seamPulse { 0%, 100% { box-shadow: 0 0 28px var(--cyan), 0 0 70px var(--magenta), 0 0 110px var(--blue); } 50% { box-shadow: 0 0 55px #ffffff, 0 0 110px var(--cyan), 0 0 180px var(--magenta); } }
+    @keyframes flarePulse { 0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.85); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.25); } }
+    @keyframes btnFlow { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+    @keyframes btnBreathe { 0%, 100% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 36px rgba(0, 240, 255, 0.7), 0 0 85px rgba(255, 0, 212, 0.45); } 50% { transform: translate(-50%, -50%) scale(1.06); box-shadow: 0 0 65px rgba(0, 240, 255, 0.95), 0 0 135px rgba(255, 0, 212, 0.7), 0 0 200px rgba(41, 98, 255, 0.45); } }
+    @keyframes ringWave { 0% { opacity: 0.9; transform: scale(0.95); } 100% { opacity: 0; transform: scale(1.42); } }
+    @keyframes ringWaveHover { 0% { opacity: 1; transform: scale(0.95); } 100% { opacity: 0; transform: scale(1.65); } }
+    @keyframes titleFlow { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+        "@tweenjs/tween.js": "https://cdn.jsdelivr.net/npm/@tweenjs/tween.js@23.1.1/dist/tween.esm.js"
+      }
+    }
+  </script>
+</head>
+
+<body>
+  <div id="curtain">
+    <div class="gate gate-left">
+      <div class="gate-plasma"></div><div class="gate-hex-primary"></div><div class="gate-hex-secondary"></div><div class="gate-glass"></div><div class="gate-scan"></div>
+    </div>
+    <div class="gate gate-right">
+      <div class="gate-plasma"></div><div class="gate-hex-primary"></div><div class="gate-hex-secondary"></div><div class="gate-glass"></div><div class="gate-scan"></div>
+    </div>
+    <div id="curtain-seam"></div>
+  </div>
+
+  <button id="action-btn" type="button">Iniciar</button>
+  <canvas id="confetti-canvas"></canvas>
+  <div id="finale-overlay"><h1>Esto ha sido Mezcla Natural</h1></div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+    import * as TWEEN from '@tweenjs/tween.js';
+
+    // ======================================================================
+    // REFERENCIAS DOM Y CONSTANTES
+    // ======================================================================
+    const curtainEl = document.getElementById('curtain');
+    const gateLeftEl = document.querySelector('.gate-left');
+    const actionBtn = document.getElementById('action-btn');
+    const confettiCanvas = document.getElementById('confetti-canvas');
+    const finaleOverlay = document.getElementById('finale-overlay');
+
+    const INITIAL_VALUES = [38, 27, 43, 3, 9, 82, 10];
+    const NEON_PALETTE = [0x00f0ff, 0xff00d4, 0xffb800, 0xa855f7, 0x2962ff, 0xf43f5e];
+    const HOLO_CYAN = 0x00f0ff;
+    const EMERALD = 0x00ff9c;
+    const IDLE_CRYSTAL = 0x162b40;
+
+    const CUBE_SIZE = 3.4;
+    const BASE_SPACING = 4.6;
+    const GROUP_GAP = 1.4;
+    const BASE_Y = 2.6;
+    const LEVEL_Z = [-6.0, 1.0, 8.0];
+    const PARTICLE_COUNT = 460;
+    const CURTAIN_MS = 1550;
+
+    // ======================================================================
+    // SISTEMA DE SONIDO MELODIC TECHNO (WEB AUDIO API PROCEDURAL)
+    // ======================================================================
+    class SoundEngine {
+      constructor() {
+        this.ctx = null; this.master = null; this.delayInput = null;
+      }
+      init() {
+        if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        this.ctx = new AudioCtx();
+        const compressor = this.ctx.createDynamicsCompressor();
+        compressor.threshold.value = -14; compressor.ratio.value = 6; compressor.connect(this.ctx.destination);
+        this.master = this.ctx.createGain(); this.master.gain.value = 0.62; this.master.connect(compressor);
+        const delay = this.ctx.createDelay(1.0); delay.delayTime.value = 0.3;
+        const feedback = this.ctx.createGain(); feedback.gain.value = 0.34;
+        const wetFilter = this.ctx.createBiquadFilter(); wetFilter.type = 'lowpass'; wetFilter.frequency.value = 2200;
+        const wetGain = this.ctx.createGain(); wetGain.gain.value = 0.36;
+        delay.connect(wetFilter); wetFilter.connect(feedback); feedback.connect(delay); wetFilter.connect(wetGain); wetGain.connect(this.master);
+        this.delayInput = delay;
+      }
+      playActivationSweep() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc1 = this.ctx.createOscillator(); const osc2 = this.ctx.createOscillator();
+        const filter = this.ctx.createBiquadFilter(); const gain = this.ctx.createGain();
+        osc1.type = 'sawtooth'; osc2.type = 'triangle';
+        osc1.frequency.setValueAtTime(68, now); osc1.frequency.exponentialRampToValueAtTime(640, now + 1.5);
+        osc2.frequency.setValueAtTime(136.4, now); osc2.frequency.exponentialRampToValueAtTime(1280, now + 1.5);
+        filter.type = 'lowpass'; filter.Q.value = 5.5;
+        filter.frequency.setValueAtTime(140, now); filter.frequency.exponentialRampToValueAtTime(4400, now + 1.4);
+        gain.gain.setValueAtTime(0.001, now); gain.gain.linearRampToValueAtTime(0.24, now + 0.35); gain.gain.exponentialRampToValueAtTime(0.001, now + 1.7);
+        osc1.connect(filter); osc2.connect(filter); filter.connect(gain); gain.connect(this.master); gain.connect(this.delayInput);
+        osc1.start(now); osc2.start(now); osc1.stop(now + 1.75); osc2.stop(now + 1.75);
+        this.playSubBoom(115, 36, 0.55, 0.36);
+      }
+      playSubBoom(startFreq, endFreq, duration, peakGain) {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const sub = this.ctx.createOscillator(); const body = this.ctx.createOscillator();
+        const filter = this.ctx.createBiquadFilter(); const gain = this.ctx.createGain();
+        sub.type = 'sine'; sub.frequency.setValueAtTime(startFreq, now); sub.frequency.exponentialRampToValueAtTime(endFreq, now + duration * 0.72);
+        body.type = 'triangle'; body.frequency.setValueAtTime(startFreq * 0.5, now); body.frequency.exponentialRampToValueAtTime(endFreq * 0.75, now + duration * 0.8);
+        filter.type = 'lowpass'; filter.Q.value = 2.8; filter.frequency.setValueAtTime(260, now); filter.frequency.exponentialRampToValueAtTime(85, now + duration);
+        gain.gain.setValueAtTime(0.001, now); gain.gain.linearRampToValueAtTime(peakGain, now + 0.015); gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        sub.connect(filter); body.connect(filter); filter.connect(gain); gain.connect(this.master); gain.connect(this.delayInput);
+        sub.start(now); body.start(now); sub.stop(now + duration + 0.05); body.stop(now + duration + 0.05);
+      }
+      playMaterializeChime(index) {
+        if (!this.ctx) return;
+        const scale = [523.25, 587.33, 659.25, 783.99, 880.0, 987.77, 1174.66];
+        const freq = scale[index % scale.length];
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator(); const harmonic = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+        osc.type = 'sine'; harmonic.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now); osc.frequency.exponentialRampToValueAtTime(freq * 1.008, now + 0.25);
+        harmonic.frequency.setValueAtTime(freq * 2, now);
+        gain.gain.setValueAtTime(0.001, now); gain.gain.linearRampToValueAtTime(0.15, now + 0.012); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+        const hGain = this.ctx.createGain(); hGain.gain.value = 0.28;
+        osc.connect(gain); harmonic.connect(hGain); hGain.connect(gain); gain.connect(this.master); gain.connect(this.delayInput);
+        osc.start(now); harmonic.start(now); osc.stop(now + 0.45); harmonic.stop(now + 0.45);
+      }
+      playBleep(freq, duration, peakGain, delayOffset) {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime + delayOffset;
+        const osc = this.ctx.createOscillator(); const filter = this.ctx.createBiquadFilter(); const gain = this.ctx.createGain();
+        osc.type = 'triangle'; osc.frequency.setValueAtTime(freq, now);
+        filter.type = 'lowpass'; filter.frequency.setValueAtTime(freq * 3.0, now);
+        gain.gain.setValueAtTime(0.001, now); gain.gain.linearRampToValueAtTime(peakGain, now + 0.012); gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        osc.connect(filter); filter.connect(gain); gain.connect(this.master); gain.connect(this.delayInput);
+        osc.start(now); osc.stop(now + duration + 0.02);
+      }
+      playCompareBleeps(valueA, valueB) {
+        if (!this.ctx) return;
+        const minVal = Math.min(valueA, valueB);
+        const freqFor = (v) => (v === minVal ? 195 + v * 1.5 : 580 + v * 3.6);
+        this.playBleep(freqFor(valueA), 0.13, 0.18, 0); this.playBleep(freqFor(valueB), 0.14, 0.18, 0.095);
+      }
+      playLandingBoom(value) {
+        if (!this.ctx) return;
+        this.playSubBoom(142, 34, 0.58, 0.48);
+        this.playBleep(380 + value * 3.5, 0.16, 0.07, 0);
+      }
+      playVictoryChord() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const freqs = [130.81, 196.0, 246.94, 293.66, 329.63, 493.88, 659.25];
+        const chordFilter = this.ctx.createBiquadFilter();
+        chordFilter.type = 'lowpass'; chordFilter.Q.value = 3.5;
+        chordFilter.frequency.setValueAtTime(280, now); chordFilter.frequency.exponentialRampToValueAtTime(5200, now + 0.75); chordFilter.frequency.exponentialRampToValueAtTime(1350, now + 3.0);
+        const chordGain = this.ctx.createGain();
+        chordGain.gain.setValueAtTime(0.001, now); chordGain.gain.linearRampToValueAtTime(0.34, now + 0.18); chordGain.gain.setValueAtTime(0.28, now + 1.9); chordGain.gain.exponentialRampToValueAtTime(0.001, now + 3.4);
+        chordFilter.connect(chordGain); chordGain.connect(this.master); chordGain.connect(this.delayInput);
+        freqs.forEach((f, idx) => {
+          const oscA = this.ctx.createOscillator(); const oscB = this.ctx.createOscillator(); const voiceGain = this.ctx.createGain();
+          voiceGain.gain.value = idx === 0 ? 0.36 : 0.16;
+          oscA.type = 'sawtooth'; oscB.type = 'triangle';
+          oscA.frequency.setValueAtTime(f, now); oscB.frequency.setValueAtTime(f * 1.0045, now);
+          oscA.connect(voiceGain); oscB.connect(voiceGain); voiceGain.connect(chordFilter);
+          oscA.start(now); oscB.start(now); oscA.stop(now + 3.5); oscB.stop(now + 3.5);
+        });
+      }
+      playFinaleBurst() {
+        if (!this.ctx) return;
+        this.playSubBoom(125, 36, 0.55, 0.42);
+        const sparkles = [523.25, 659.25, 783.99, 987.77, 1174.66, 1318.51, 1567.98];
+        sparkles.forEach((freq, idx) => { this.playBleep(freq, 0.45, 0.12, idx * 0.045); });
+      }
+    }
+    const sound = new SoundEngine();
+
+    // ======================================================================
+    // RENDERER, ESCENA, CÁMARA Y POST-PROCESADO
+    // ======================================================================
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x010308);
+    scene.fog = new THREE.FogExp2(0x010308, 0.011);
+
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 280);
+    camera.position.set(0, 8.2, 33.5);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.18;
+    renderer.domElement.id = 'webgl-canvas';
+    document.body.prepend(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true; controls.dampingFactor = 0.04; controls.enablePan = false; controls.enableZoom = false; controls.target.set(0, 0.4, 1.2);
+
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.95, 0.48, 1.02);
+    composer.addPass(bloomPass);
+
+    // ======================================================================
+    // SUELO DE CRISTAL OSCURO SEMI-TRANSPARENTE (SIN REFLECTOR) + LUCES
+    // ======================================================================
+    function buildEnvironment() {
+      const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(240, 240),
+        new THREE.MeshStandardMaterial({ color: 0x02050c, roughness: 0.14, metalness: 0.85, transparent: true, opacity: 0.75, depthWrite: false })
+      );
+      floor.rotation.x = -Math.PI / 2; floor.position.y = 0; floor.renderOrder = 2;
+      scene.add(floor);
+
+      scene.add(new THREE.AmbientLight(0x1e3a5f, 1.9));
+      const keyLight = new THREE.DirectionalLight(0x00f0ff, 2.3);
+      keyLight.position.set(18, 34, 24);
+      scene.add(keyLight);
+      const rimLight = new THREE.DirectionalLight(0xff00d4, 1.7);
+      rimLight.position.set(-20, 22, -20);
+      scene.add(rimLight);
+    }
+    buildEnvironment();
+
+    // ======================================================================
+    // PARTÍCULAS DE FONDO (FLUJO DE DATOS)
+    // ======================================================================
+    function createParticleGlowTexture() {
+      const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grad.addColorStop(0, 'rgba(255, 255, 255, 1)'); grad.addColorStop(0.38, 'rgba(0, 240, 255, 0.65)'); grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, 64, 64);
+      const texture = new THREE.CanvasTexture(canvas); texture.needsUpdate = true;
+      return texture;
+    }
+
+    const particleGeometry = new THREE.BufferGeometry();
+    const particlePositions = new Float32Array(PARTICLE_COUNT * 3);
+    const particleSpeeds = new Float32Array(PARTICLE_COUNT);
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particlePositions[i * 3] = (Math.random() - 0.5) * 90;
+      particlePositions[i * 3 + 1] = Math.random() * 30 + 0.5;
+      particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 70 - 6;
+      particleSpeeds[i] = 0.32 + Math.random() * 0.72;
+    }
+    particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+    const particleSystem = new THREE.Points(
+      particleGeometry,
+      new THREE.PointsMaterial({ size: 0.36, map: createParticleGlowTexture(), color: HOLO_CYAN, transparent: true, opacity: 0.52, depthWrite: false, blending: THREE.AdditiveBlending })
+    );
+    particleSystem.renderOrder = 10;
+    scene.add(particleSystem);
+
+    // ======================================================================
+    // CUBOS MASIVOS CON FAKE REFLECTION LEGIBLE (NO INVERTIDA)
+    // ======================================================================
+    function createNumberHologramTexture(value) {
+      const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 512;
+      const ctx = canvas.getContext('2d'); const label = String(value);
+      let fontSize = 275;
+      ctx.font = `900 ${fontSize}px "Arial Black", Impact, "Segoe UI", sans-serif`;
+      const measured = ctx.measureText(label).width;
+      if (measured > 395) {
+        fontSize = Math.floor((fontSize * 395) / measured);
+        ctx.font = `900 ${fontSize}px "Arial Black", Impact, "Segoe UI", sans-serif`;
+      }
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+      // Resplandor neón exterior denso
+      ctx.shadowColor = '#00f0ff'; ctx.shadowBlur = 32; ctx.lineWidth = 54; ctx.strokeStyle = 'rgba(0, 240, 255, 0.78)';
+      ctx.strokeText(label, 256, 264);
+      // Contorno negro grueso
+      ctx.shadowColor = '#000000'; ctx.shadowBlur = 10; ctx.lineWidth = 38; ctx.strokeStyle = '#020408';
+      ctx.strokeText(label, 256, 264);
+      // Relleno blanco sólido
+      ctx.shadowBlur = 0; ctx.fillStyle = '#ffffff'; ctx.fillText(label, 256, 264);
+      const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 8; texture.needsUpdate = true;
+      return texture;
+    }
+
+    const cubeGeometry = new RoundedBoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE, 6, 0.34);
+    const edgeGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(CUBE_SIZE * 0.96, CUBE_SIZE * 0.96, CUBE_SIZE * 0.96));
+    const numberPlaneGeometry = new THREE.PlaneGeometry(CUBE_SIZE * 0.9, CUBE_SIZE * 0.9);
+
+    function createCrystalCube(value, index) {
+      const rootGroup = new THREE.Group();
+      const mainHolder = new THREE.Group(); const cloneHolder = new THREE.Group();
+      rootGroup.add(mainHolder); rootGroup.add(cloneHolder);
+
+      // --- CUBO PRINCIPAL (ARRIBA, Y POSITIVA) ---
+      const mainGlassMat = new THREE.MeshPhysicalMaterial({
+        color: 0x0c1b2e, emissive: IDLE_CRYSTAL, emissiveIntensity: 0.1, roughness: 0.16, metalness: 0.05,
+        transmission: 0.86, thickness: 2.2, ior: 1.48, clearcoat: 1.0, clearcoatRoughness: 0.08
+      });
+      const mainGlassMesh = new THREE.Mesh(cubeGeometry, mainGlassMat);
+      mainHolder.add(mainGlassMesh);
+      const mainEdgeMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.28, depthWrite: false, blending: THREE.AdditiveBlending });
+      const mainEdges = new THREE.LineSegments(edgeGeometry, mainEdgeMat); mainEdges.renderOrder = 4;
+      mainHolder.add(mainEdges);
+
+      const numberTexture = createNumberHologramTexture(value);
+      const zOffset = CUBE_SIZE * 0.5 + 0.06;
+      // Material del texto superior: nítido, sin difuminado bloom, depthTest false y renderOrder 999
+      const mainNumberMat = new THREE.MeshBasicMaterial({
+        map: numberTexture, color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, depthTest: false, toneMapped: false, side: THREE.FrontSide
+      });
+      const mainFrontNumber = new THREE.Mesh(numberPlaneGeometry, mainNumberMat);
+      mainFrontNumber.position.z = zOffset; mainFrontNumber.renderOrder = 999; mainFrontNumber.visible = false; mainFrontNumber.scale.setScalar(0.001);
+      mainHolder.add(mainFrontNumber);
+      const mainBackNumber = new THREE.Mesh(numberPlaneGeometry, mainNumberMat);
+      mainBackNumber.position.z = -zOffset; mainBackNumber.rotation.y = Math.PI; mainBackNumber.renderOrder = 999; mainBackNumber.visible = false; mainBackNumber.scale.setScalar(0.001);
+      mainHolder.add(mainBackNumber);
+      const coreLight = new THREE.PointLight(HOLO_CYAN, 0, 14, 1.5);
+      coreLight.position.set(0, -0.4, 0); mainHolder.add(coreLight);
+
+      // --- CLON DE REFLEJO FALSO (ABAJO, Y NEGATIVA, TEXTO SIN INVERTIR) ---
+      const cloneGlassMat = new THREE.MeshStandardMaterial({ color: 0x0a1628, emissive: IDLE_CRYSTAL, emissiveIntensity: 0.08, roughness: 0.25, metalness: 0.2, transparent: true, opacity: 0.36, depthWrite: false });
+      const cloneGlassMesh = new THREE.Mesh(cubeGeometry, cloneGlassMat); cloneGlassMesh.renderOrder = 1; cloneHolder.add(cloneGlassMesh);
+      const cloneEdgeMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending });
+      const cloneEdges = new THREE.LineSegments(edgeGeometry, cloneEdgeMat); cloneEdges.renderOrder = 1; cloneHolder.add(cloneEdges);
+      // Misma textura orientada de izquierda a derecha (nunca al revés)
+      const cloneNumberMat = new THREE.MeshBasicMaterial({
+        map: numberTexture, color: 0xe2f8ff, transparent: true, opacity: 0, depthWrite: false, depthTest: true, toneMapped: false, side: THREE.FrontSide
+      });
+      const cloneFrontNumber = new THREE.Mesh(numberPlaneGeometry, cloneNumberMat);
+      cloneFrontNumber.position.z = zOffset; cloneFrontNumber.renderOrder = 3; cloneFrontNumber.visible = false; cloneFrontNumber.scale.setScalar(0.001);
+      cloneHolder.add(cloneFrontNumber);
+      const cloneBackNumber = new THREE.Mesh(numberPlaneGeometry, cloneNumberMat);
+      cloneBackNumber.position.z = -zOffset; cloneBackNumber.rotation.y = Math.PI; cloneBackNumber.renderOrder = 3; cloneBackNumber.visible = false; cloneBackNumber.scale.setScalar(0.001);
+      cloneHolder.add(cloneBackNumber);
+
+      scene.add(rootGroup);
+
+      return {
+        id: index, value, rootGroup, mainHolder, cloneHolder, mainGlassMat, cloneGlassMat, mainEdgeMat, cloneEdgeMat,
+        mainNumberMat, cloneNumberMat, mainFrontNumber, mainBackNumber, cloneFrontNumber, cloneBackNumber, coreLight,
+        baseX: 0, baseY: BASE_Y, baseZ: LEVEL_Z[0], phase: index * 0.85
+      };
+    }
+    const cubes = INITIAL_VALUES.map((value, index) => createCrystalCube(value, index));
+
+    function computeRunsX(runs) {
+      const total = runs.reduce((acc, run) => acc + run.length, 0);
+      const span = (total - 1) * BASE_SPACING + (runs.length - 1) * GROUP_GAP;
+      const xMap = new Map(); let cursor = -span / 2;
+      runs.forEach((run) => { run.forEach((cube) => { xMap.set(cube, cursor); cursor += BASE_SPACING; }); cursor += GROUP_GAP; });
+      return xMap;
+    }
+    function placeCubesInitially() {
+      const xMap = computeRunsX([cubes]);
+      cubes.forEach((cube) => {
+        cube.baseX = xMap.get(cube); cube.baseY = BASE_Y; cube.baseZ = LEVEL_Z[0];
+        cube.rootGroup.position.set(cube.baseX, 0, cube.baseZ);
+        cube.mainHolder.position.y = cube.baseY; cube.cloneHolder.position.y = -cube.baseY;
+      });
+    }
+    placeCubesInitially();
+
+    // ======================================================================
+    // UTILIDADES DE ANIMACIÓN 3D
+    // ======================================================================
+    function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
+    function playTween(tween) { return new Promise((resolve) => { tween.onComplete(() => resolve()); tween.start(); }); }
+    function waitForGateTransition(fallbackMs) {
+      return new Promise((resolve) => {
+        let finished = false;
+        const onEnd = (event) => { if (event.target === gateLeftEl && event.propertyName === 'transform') finish(); };
+        const finish = () => { if (finished) return; finished = true; gateLeftEl.removeEventListener('transitionend', onEnd); resolve(); };
+        gateLeftEl.addEventListener('transitionend', onEnd); setTimeout(finish, fallbackMs);
+      });
+    }
+
+    function spawnShockwave(x, z, hexColor) {
+      const geometry = new THREE.RingGeometry(0.45, 0.95, 48);
+      const material = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(hexColor).multiplyScalar(1.5), side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending
+      });
+      const ring = new THREE.Mesh(geometry, material);
+      ring.rotation.x = -Math.PI / 2; ring.position.set(x, 0.04, z); ring.renderOrder = 5; scene.add(ring);
+      const state = { scale: 1, opacity: 0.95 };
+      new TWEEN.Tween(state).to({ scale: 6.4, opacity: 0 }, 900).easing(TWEEN.Easing.Cubic.Out).onUpdate(() => {
+        ring.scale.set(state.scale, state.scale, 1); material.opacity = state.opacity;
+      }).onComplete(() => { scene.remove(ring); geometry.dispose(); material.dispose(); }).start();
+    }
+
+    function setCubeColor(cube, hexColor, glassIntensity, lightIntensity, duration) {
+      const target = new THREE.Color(hexColor);
+      const fromGlass = cube.mainGlassMat.emissive.clone(); const fromEdge = cube.mainEdgeMat.color.clone(); const fromLight = cube.coreLight.color.clone();
+      const state = { t: 0, glass: cube.mainGlassMat.emissiveIntensity, edge: cube.mainEdgeMat.opacity, light: cube.coreLight.intensity };
+      new TWEEN.Tween(state).to({ t: 1, glass: glassIntensity, edge: 0.9, light: lightIntensity }, duration).easing(TWEEN.Easing.Cubic.Out).onUpdate(() => {
+        cube.mainGlassMat.emissive.lerpColors(fromGlass, target, state.t); cube.mainGlassMat.emissiveIntensity = state.glass;
+        cube.cloneGlassMat.emissive.lerpColors(fromGlass, target, state.t); cube.cloneGlassMat.emissiveIntensity = state.glass * 0.75;
+        cube.mainEdgeMat.color.lerpColors(fromEdge, target, state.t); cube.mainEdgeMat.opacity = state.edge;
+        cube.cloneEdgeMat.color.lerpColors(fromEdge, target, state.t); cube.cloneEdgeMat.opacity = state.edge * 0.5;
+        cube.coreLight.color.lerpColors(fromLight, target, state.t); cube.coreLight.intensity = state.light;
+      }).start();
+    }
+
+    function moveLinear(cube, x, y, z, duration, easing) {
+      const state = { x: cube.baseX, y: cube.baseY, z: cube.baseZ };
+      return playTween(new TWEEN.Tween(state).to({ x, y, z }, duration).easing(easing || TWEEN.Easing.Cubic.InOut).onUpdate(() => {
+        cube.baseX = state.x; cube.baseY = state.y; cube.baseZ = state.z;
+      }));
+    }
+
+    function moveBezier(cube, x, y, z, side, hexColor, duration) {
+      const start = new THREE.Vector3(cube.baseX, cube.baseY, cube.baseZ); const end = new THREE.Vector3(x, y, z); const midZ = (start.z + end.z) * 0.5;
+      const curve = new THREE.CubicBezierCurve3(
+        start, new THREE.Vector3(start.x + side * 2.1, start.y + 3.8, midZ - 1.1),
+        new THREE.Vector3(end.x - side * 1.0, end.y + 2.6, midZ + 1.3), end
+      );
+      const startRot = cube.mainHolder.rotation.y; const endRot = startRot + Math.PI * 2 * (side >= 0 ? 1 : -1);
+      const state = { t: 0 };
+      setCubeColor(cube, hexColor, 0.55, 6.0, duration * 0.85);
+
+      return playTween(new TWEEN.Tween(state).to({ t: 1 }, duration).easing(TWEEN.Easing.Cubic.InOut).onUpdate(() => {
+        const p = curve.getPoint(state.t); cube.baseX = p.x; cube.baseY = p.y; cube.baseZ = p.z;
+        const ry = startRot + (endRot - startRot) * state.t; const rz = Math.sin(state.t * Math.PI) * 0.28 * side; const rx = Math.sin(state.t * Math.PI) * 0.22;
+        cube.mainHolder.rotation.set(rx, ry, rz); cube.cloneHolder.rotation.set(-rx, ry, -rz);
+      }).onComplete(() => {
+        cube.mainHolder.rotation.set(0, 0, 0); cube.cloneHolder.rotation.set(0, 0, 0);
+        spawnShockwave(x, z, hexColor); sound.playLandingBoom(cube.value);
+        const flash = { glass: 1.5, light: 9.5, scale: 1.15 };
+        new TWEEN.Tween(flash).to({ glass: 0.45, light: 4.5, scale: 1 }, 520).easing(TWEEN.Easing.Back.Out).onUpdate(() => {
+          cube.mainGlassMat.emissiveIntensity = flash.glass; cube.cloneGlassMat.emissiveIntensity = flash.glass * 0.75; cube.coreLight.intensity = flash.light;
+          cube.mainHolder.scale.setScalar(flash.scale); cube.cloneHolder.scale.setScalar(flash.scale);
+        }).start();
+      }));
+    }
+
+    function materializeNumber(cube, index, duration) {
+      cube.mainFrontNumber.visible = true; cube.mainBackNumber.visible = true; cube.cloneFrontNumber.visible = true; cube.cloneBackNumber.visible = true;
+      cube.mainGlassMat.emissive.setHex(HOLO_CYAN); cube.cloneGlassMat.emissive.setHex(HOLO_CYAN); cube.mainEdgeMat.color.setHex(HOLO_CYAN); cube.cloneEdgeMat.color.setHex(HOLO_CYAN); cube.coreLight.color.setHex(HOLO_CYAN);
+      spawnShockwave(cube.baseX, cube.baseZ, HOLO_CYAN); sound.playMaterializeChime(index);
+      const state = { scale: 0.001, mainOp: 0, cloneOp: 0, glass: 0.1, edge: 0.28, light: 0 };
+      return playTween(new TWEEN.Tween(state).to({ scale: 1, mainOp: 1, cloneOp: 0.68, glass: 1.15, edge: 0.85, light: 6.0 }, duration).easing(TWEEN.Easing.Back.Out).onUpdate(() => {
+        cube.mainFrontNumber.scale.setScalar(state.scale); cube.mainBackNumber.scale.setScalar(state.scale); cube.cloneFrontNumber.scale.setScalar(state.scale); cube.cloneBackNumber.scale.setScalar(state.scale);
+        cube.mainNumberMat.opacity = state.mainOp; cube.cloneNumberMat.opacity = state.cloneOp;
+        cube.mainGlassMat.emissiveIntensity = state.glass; cube.cloneGlassMat.emissiveIntensity = state.glass * 0.75;
+        cube.mainEdgeMat.opacity = state.edge; cube.cloneEdgeMat.opacity = state.edge * 0.5; cube.coreLight.intensity = state.light;
+      }).onComplete(() => {
+        const settle = { glass: 1.15, edge: 0.85, light: 6.0 };
+        new TWEEN.Tween(settle).to({ glass: 0.24, edge: 0.45, light: 2.2 }, 360).easing(TWEEN.Easing.Cubic.Out).onUpdate(() => {
+          cube.mainGlassMat.emissiveIntensity = settle.glass; cube.cloneGlassMat.emissiveIntensity = settle.glass * 0.75;
+          cube.mainEdgeMat.opacity = settle.edge; cube.cloneEdgeMat.opacity = settle.edge * 0.5; cube.coreLight.intensity = settle.light;
+        }).start();
+      }));
+    }
+
+    // ======================================================================
+    // CONFETI DIGITAL 2D (ACTO 4)
+    // ======================================================================
+    const confettiCtx = confettiCanvas.getContext('2d');
+    const confettiParticles = [];
+    const CONFETTI_COLORS = ['#00f0ff', '#ff00d4', '#2962ff', '#00ff9c', '#ffe600', '#ffffff'];
+    let confettiActive = false; let rainUntil = 0;
+    function resizeConfettiCanvas() { confettiCanvas.width = window.innerWidth; confettiCanvas.height = window.innerHeight; }
+    resizeConfettiCanvas();
+    function createConfettiParticle(x, y, vx, vy) {
+      return { x, y, vx, vy, w: 6 + Math.random() * 11, h: 3 + Math.random() * 6, color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)], rotation: Math.random() * Math.PI * 2, spin: (Math.random() - 0.5) * 0.25, alpha: 1, decay: 0.003 + Math.random() * 0.005 };
+    }
+    function launchConfetti() {
+      const cx = confettiCanvas.width / 2; const cy = confettiCanvas.height / 2;
+      for (let i = 0; i < 340; i++) {
+        const angle = Math.random() * Math.PI * 2; const speed = 5 + Math.random() * 22;
+        confettiParticles.push(createConfettiParticle(cx + (Math.random() - 0.5) * 140, cy + (Math.random() - 0.5) * 70, Math.cos(angle) * speed, Math.sin(angle) * speed - 5.5));
+      }
+      rainUntil = performance.now() + 5500; confettiActive = true;
+    }
+    function drawConfetti(now) {
+      if (!confettiActive) return;
+      if (now < rainUntil) {
+        for (let i = 0; i < 7; i++) {
+          const spark = createConfettiParticle(Math.random() * confettiCanvas.width, -20, (Math.random() - 0.5) * 2.4, 2.2 + Math.random() * 4.5);
+          spark.decay = 0.002 + Math.random() * 0.003; confettiParticles.push(spark);
+        }
+      }
+      confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height); confettiCtx.globalCompositeOperation = 'lighter';
+      for (let i = confettiParticles.length - 1; i >= 0; i--) {
+        const p = confettiParticles[i];
+        p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.vx *= 0.985; p.rotation += p.spin; p.alpha -= p.decay;
+        if (p.alpha <= 0 || p.y > confettiCanvas.height + 40) { confettiParticles.splice(i, 1); continue; }
+        confettiCtx.save(); confettiCtx.translate(p.x, p.y); confettiCtx.rotate(p.rotation); confettiCtx.fillStyle = p.color;
+        confettiCtx.globalAlpha = p.alpha * 0.28; confettiCtx.fillRect(-p.w * 1.15, -p.h * 1.35, p.w * 2.3, p.h * 2.7);
+        confettiCtx.globalAlpha = p.alpha; confettiCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); confettiCtx.restore();
+      }
+      confettiCtx.globalCompositeOperation = 'source-over';
+      if (confettiParticles.length === 0 && now >= rainUntil) { confettiActive = false; confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height); }
+    }
+
+    // ======================================================================
+    // ALGORITMO: NATURAL MERGE SORT VISUAL + AUDIO SINCRONIZADO
+    // ======================================================================
+    async function detectNaturalRuns(list) {
+      const runs = []; let current = [list[0]]; let colorIndex = 0;
+      setCubeColor(list[0], NEON_PALETTE[colorIndex], 0.48, 4.8, 420); sound.playBleep(280, 0.16, 0.16, 0);
+      await moveLinear(list[0], list[0].baseX, BASE_Y + 0.9, LEVEL_Z[0], 420, TWEEN.Easing.Back.Out);
+
+      for (let i = 1; i < list.length; i++) {
+        const prev = list[i - 1]; const curr = list[i];
+        setCubeColor(curr, 0xffffff, 0.85, 6.2, 240); sound.playCompareBleeps(prev.value, curr.value);
+        await moveLinear(curr, curr.baseX, BASE_Y + 1.35, LEVEL_Z[0], 280, TWEEN.Easing.Cubic.Out);
+        if (curr.value < prev.value) { runs.push(current); current = []; colorIndex = (colorIndex + 1) % NEON_PALETTE.length; }
+        current.push(curr);
+        setCubeColor(curr, NEON_PALETTE[colorIndex], 0.48, 4.8, 350);
+        await moveLinear(curr, curr.baseX, BASE_Y + 0.9, LEVEL_Z[0], 320, TWEEN.Easing.Back.Out);
+      }
+      runs.push(current);
+      const xMap = computeRunsX(runs); await Promise.all(list.map((cube) => moveLinear(cube, xMap.get(cube), BASE_Y + 0.9, LEVEL_Z[0], 550, TWEEN.Easing.Cubic.Out)));
+      await sleep(600); return runs;
+    }
+
+    async function mergePair(leftRun, rightRun, slotsX, targetZ, color) {
+      const lift = (cube, height, ms) => moveLinear(cube, cube.baseX, BASE_Y + height, cube.baseZ, ms, TWEEN.Easing.Cubic.Out);
+      await Promise.all([...leftRun, ...rightRun].map((cube) => lift(cube, 1.85, 380)));
+      const merged = []; let l = 0; let r = 0;
+      while (l < leftRun.length && r < rightRun.length) {
+        const a = leftRun[l]; const b = rightRun[r];
+        sound.playCompareBleeps(a.value, b.value); await Promise.all([lift(a, 2.55, 260), lift(b, 2.55, 260)]);
+        const takeLeft = a.value <= b.value; const winner = takeLeft ? a : b; const waiter = takeLeft ? b : a;
+        if (takeLeft) l++; else r++;
+        lift(waiter, 1.85, 300); await moveBezier(winner, slotsX[merged.length], BASE_Y, targetZ, takeLeft ? -1 : 1, color, 920);
+        merged.push(winner);
+      }
+      while (l < leftRun.length) { const cube = leftRun[l++]; await moveBezier(cube, slotsX[merged.length], BASE_Y, targetZ, -0.7, color, 780); merged.push(cube); }
+      while (r < rightRun.length) { const cube = rightRun[r++]; await moveBezier(cube, slotsX[merged.length], BASE_Y, targetZ, 0.7, color, 780); merged.push(cube); }
+      return merged;
+    }
+
+    async function mergeAllLevels(initialRuns) {
+      let runs = initialRuns; let level = 0; let colorCursor = 4;
+      while (runs.length > 1) {
+        const targetZ = LEVEL_Z[Math.min(level + 1, LEVEL_Z.length - 1)]; const preview = [];
+        for (let i = 0; i < runs.length; i += 2) preview.push(i + 1 < runs.length ? [...runs[i], ...runs[i + 1]] : [...runs[i]]);
+        const xMap = computeRunsX(preview); const nextRuns = [];
+        for (let i = 0; i < runs.length; i += 2) {
+          const slotsX = preview[i / 2].map((cube) => xMap.get(cube));
+          if (i + 1 < runs.length) {
+            const color = runs.length === 2 ? HOLO_CYAN : NEON_PALETTE[colorCursor % NEON_PALETTE.length]; colorCursor++;
+            nextRuns.push(await mergePair(runs[i], runs[i + 1], slotsX, targetZ, color)); await sleep(300);
+          } else {
+            const single = runs[i]; for (let k = 0; k < single.length; k++) await moveBezier(single[k], slotsX[k], BASE_Y, targetZ, 0.5, NEON_PALETTE[3], 740);
+            nextRuns.push(single);
+          }
+        }
+        runs = nextRuns; level++; await sleep(450);
+      }
+      return runs[0];
+    }
+
+    async function playVictory(sorted) {
+      const xMap = computeRunsX([sorted]);
+      await Promise.all(sorted.map((cube) => moveLinear(cube, xMap.get(cube), BASE_Y, 1.4, 650, TWEEN.Easing.Cubic.InOut)));
+      new TWEEN.Tween(bloomPass).to({ strength: 1.65 }, 450).easing(TWEEN.Easing.Cubic.Out).start(); sound.playVictoryChord();
+      sorted.forEach((cube) => {
+        setCubeColor(cube, EMERALD, 1.35, 9.0, 420); spawnShockwave(cube.baseX, cube.baseZ, EMERALD);
+        const spin = { ry: cube.mainHolder.rotation.y };
+        new TWEEN.Tween(spin).to({ ry: spin.ry + Math.PI * 2 }, 1350).easing(TWEEN.Easing.Quintic.Out).onUpdate(() => {
+          cube.mainHolder.rotation.y = spin.ry; cube.cloneHolder.rotation.y = spin.ry;
+        }).start();
+      });
+      await Promise.all(sorted.map((cube) => moveLinear(cube, cube.baseX, BASE_Y + 2.0, cube.baseZ, 950, TWEEN.Easing.Back.Out)));
+    }
+
+    // ======================================================================
+    // SECUENCIA TEATRAL (4 ACTOS, EJECUCIÓN ÚNICA)
+    // ======================================================================
+    async function runShow() {
+      curtainEl.classList.add('igniting'); sound.playActivationSweep(); actionBtn.classList.add('hidden');
+      await sleep(320); curtainEl.classList.remove('igniting'); curtainEl.classList.add('open');
+      await waitForGateTransition(CURTAIN_MS + 300);
+      await sleep(350);
+      for (let i = 0; i < cubes.length; i++) { materializeNumber(cubes[i], i, 520); await sleep(160); }
+      await sleep(900);
+      const runs = await detectNaturalRuns(cubes); const sorted = await mergeAllLevels(runs);
+      await playVictory(sorted); await sleep(3000);
+      curtainEl.classList.remove('open'); await waitForGateTransition(CURTAIN_MS + 300);
+      sound.playFinaleBurst(); launchConfetti(); finaleOverlay.classList.add('visible');
+    }
+
+    let showStarted = false;
+    actionBtn.addEventListener('click', () => { if (showStarted) return; showStarted = true; sound.init(); runShow(); });
+
+    // ======================================================================
+    // BUCLE DE RENDER CONTINUO (MOVIMIENTO SIMÉTRICO SUPERIOR/INFERIOR)
+    // ======================================================================
+    const clock = new THREE.Clock();
+    function animate(now) {
+      requestAnimationFrame(animate); TWEEN.update(now);
+      const t = clock.getElapsedTime();
+      cubes.forEach((cube) => {
+        const hover = Math.sin(t * 2.2 + cube.phase) * 0.16; const symY = cube.baseY + hover;
+        cube.rootGroup.position.set(cube.baseX, 0, cube.baseZ); cube.mainHolder.position.y = symY; cube.cloneHolder.position.y = -symY;
+      });
+      const positions = particleGeometry.attributes.position;
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        let y = positions.getY(i) - particleSpeeds[i] * 0.032;
+        if (y < 0.4) y = 30;
+        positions.setY(i, y);
+      }
+      positions.needsUpdate = true;
+      const aspectScale = Math.max(1, 1.68 / Math.max(camera.aspect, 0.55));
+      const angle = Math.sin(t * 0.34) * 0.34; const radius = (33.5 + Math.cos(t * 0.16) * 1.8) * aspectScale;
+      camera.position.set(Math.sin(angle) * radius, 8.2 + Math.sin(t * 0.26) * 1.2, Math.cos(angle) * radius);
+      controls.update(); composer.render(); drawConfetti(now);
+    }
+    requestAnimationFrame(animate);
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight); resizeConfettiCanvas();
+    });
+  </script>
+</body>
+</html>
